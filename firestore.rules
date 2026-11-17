@@ -1,0 +1,221 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    // Pure token check (zero DB reads) safe for list rules
+    function isBootstrapAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'renieestrella90@gmail.com' ||
+        request.auth.token.email == 'sangguniangbayan01@gmail.com' ||
+        request.auth.token.email == 'sesangguniangbayansecretariat@gmail.com'
+      );
+    }
+
+    // Single-document admin check including /admins/{uid}
+    function isAdmin() {
+      return isBootstrapAdmin() || (
+        isVerifiedUser() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidAttachments(att) {
+      return att is map &&
+        att.keys().hasAll([
+          'license', 'cr', 'citizenship', 'ctc', 'brgy',
+          'toda', 'fed', 'insurance', 'medical', 'affidavit'
+        ]) &&
+        att.keys().hasOnly([
+          'license', 'cr', 'citizenship', 'ctc', 'brgy',
+          'toda', 'fed', 'insurance', 'medical', 'affidavit'
+        ]) &&
+        att.license is bool &&
+        att.cr is bool &&
+        att.citizenship is bool &&
+        att.ctc is bool &&
+        att.brgy is bool &&
+        att.toda is bool &&
+        att.fed is bool &&
+        att.insurance is bool &&
+        att.medical is bool &&
+        att.affidavit is bool;
+    }
+
+    function isValidAiResult(ai) {
+      return ai is map &&
+        ai.keys().hasAll(['decision', 'summary', 'reasons']) &&
+        ai.keys().hasOnly(['decision', 'summary', 'reasons']) &&
+        ai.decision in ['approve', 'flag', 'deny'] &&
+        ai.summary is string && ai.summary.size() >= 1 && ai.summary.size() <= 300 &&
+        ai.reasons is list && ai.reasons.size() <= 15 &&
+        (ai.reasons.size() == 0 || (ai.reasons[0] is string && ai.reasons[0].size() <= 300));
+    }
+
+    function isValidApplication(data) {
+      return data.keys().hasAll([
+          'refNo', 'userId', 'applicationType', 'applicantName', 'contactNumber',
+          'applicantAddress', 'ctcNumber', 'citizenshipAttested', 'bodyNumber',
+          'engineNumber', 'vehiclePlate', 'ltoCrNumber', 'ltoOrNumber',
+          'licenseNumber', 'licenseExpiry', 'todaName', 'todaRoute',
+          'attachments', 'aiResult', 'status', 'submittedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'refNo', 'userId', 'applicationType', 'applicantName', 'contactNumber',
+          'applicantAddress', 'ctcNumber', 'citizenshipAttested', 'bodyNumber',
+          'engineNumber', 'vehiclePlate', 'ltoCrNumber', 'ltoOrNumber',
+          'licenseNumber', 'licenseExpiry', 'todaName', 'todaRoute',
+          'attachments', 'aiResult', 'status', 'submittedAt',
+          'updatedAt', 'legislatorName', 'legislatorRemarks', 'legislatorActionAt',
+          'driveFileId', 'driveFolderUrl'
+        ]) &&
+        data.refNo is string && data.refNo.size() >= 5 && data.refNo.size() <= 40 &&
+        data.refNo.matches('^[A-Z0-9\\-]+$') &&
+        data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+        data.applicationType in ['new', 'renewal'] &&
+        data.applicantName is string && data.applicantName.size() >= 1 && data.applicantName.size() <= 150 &&
+        data.contactNumber is string && data.contactNumber.size() >= 1 && data.contactNumber.size() <= 40 &&
+        data.applicantAddress is string && data.applicantAddress.size() >= 1 && data.applicantAddress.size() <= 250 &&
+        data.ctcNumber is string && data.ctcNumber.size() <= 60 &&
+        data.citizenshipAttested is bool &&
+        data.bodyNumber is string && data.bodyNumber.size() <= 50 &&
+        data.engineNumber is string && data.engineNumber.size() <= 60 &&
+        data.vehiclePlate is string && data.vehiclePlate.size() >= 1 && data.vehiclePlate.size() <= 40 &&
+        data.ltoCrNumber is string && data.ltoCrNumber.size() <= 60 &&
+        data.ltoOrNumber is string && data.ltoOrNumber.size() <= 60 &&
+        data.licenseNumber is string && data.licenseNumber.size() >= 1 && data.licenseNumber.size() <= 60 &&
+        data.licenseExpiry is string && data.licenseExpiry.size() >= 1 && data.licenseExpiry.size() <= 20 &&
+        data.todaName is string && data.todaName.size() <= 120 &&
+        data.todaRoute is string && data.todaRoute.size() <= 160 &&
+        isValidAttachments(data.attachments) &&
+        isValidAiResult(data.aiResult) &&
+        data.status in ['awaiting_confirmation', 'confirmed_approved', 'confirmed_denied', 'returned'] &&
+        data.submittedAt is timestamp &&
+        (!data.keys().hasAny(['updatedAt']) || data.updatedAt is timestamp) &&
+        (!data.keys().hasAny(['legislatorName']) || (data.legislatorName is string && data.legislatorName.size() <= 150)) &&
+        (!data.keys().hasAny(['legislatorRemarks']) || (data.legislatorRemarks is string && data.legislatorRemarks.size() <= 500)) &&
+        (!data.keys().hasAny(['legislatorActionAt']) || data.legislatorActionAt is timestamp) &&
+        (!data.keys().hasAny(['driveFileId']) || (data.driveFileId is string && data.driveFileId.size() <= 128)) &&
+        (!data.keys().hasAny(['driveFolderUrl']) || (data.driveFolderUrl is string && data.driveFolderUrl.size() <= 300));
+    }
+
+    function isValidUser(data, userId) {
+      return data.keys().hasAll(['id', 'email', 'displayName', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'email', 'displayName', 'createdAt', 'updatedAt']) &&
+        data.id == userId &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 200 &&
+        data.displayName is string && data.displayName.size() <= 150 &&
+        data.updatedAt is timestamp &&
+        (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp);
+    }
+
+    function isValidAdmin(data) {
+      return data.keys().hasAll(['email', 'name', 'createdAt']) &&
+        data.keys().hasOnly(['email', 'name', 'createdAt']) &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 200 &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 150 &&
+        data.createdAt is timestamp;
+    }
+
+    // Connection test document
+    match /test/connection {
+      allow get: if isSignedIn();
+    }
+
+    // User profiles: owner or admin read; owner create/update (no role escalation fields allowed)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isBootstrapAdmin();
+      allow create: if isValidId(userId) &&
+        isOwner(userId) &&
+        isValidUser(incoming(), userId) &&
+        incoming().updatedAt == request.time &&
+        (!incoming().keys().hasAny(['createdAt']) || incoming().createdAt == request.time);
+      allow update: if isValidId(userId) &&
+        isOwner(userId) &&
+        isValidUser(incoming(), userId) &&
+        incoming().id == existing().id &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['email', 'displayName', 'updatedAt']) &&
+        incoming().updatedAt == request.time &&
+        (!existing().keys().hasAny(['createdAt']) || incoming().createdAt == existing().createdAt);
+    }
+
+    // Admin registry
+    match /admins/{adminId} {
+      allow get: if isValidId(adminId) && isVerifiedUser() && (request.auth.uid == adminId || isAdmin());
+      allow list: if isBootstrapAdmin();
+      allow create: if isValidId(adminId) && isBootstrapAdmin() && isValidAdmin(incoming()) && incoming().createdAt == request.time;
+      allow update: if isValidId(adminId) && isBootstrapAdmin() && isValidAdmin(incoming()) && incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(adminId) && isBootstrapAdmin();
+    }
+
+    // Tricycle franchise applications
+    match /applications/{applicationId} {
+      allow get: if isValidId(applicationId) && isVerifiedUser() && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isVerifiedUser() && (resource.data.userId == request.auth.uid || isBootstrapAdmin());
+
+      allow create: if isValidId(applicationId) &&
+        isVerifiedUser() &&
+        isValidApplication(incoming()) &&
+        incoming().userId == request.auth.uid &&
+        incoming().status == 'awaiting_confirmation' &&
+        incoming().submittedAt == request.time &&
+        !incoming().keys().hasAny(['legislatorName', 'legislatorRemarks', 'legislatorActionAt']);
+
+      allow update: if isValidId(applicationId) &&
+        isVerifiedUser() &&
+        isValidApplication(incoming()) &&
+        incoming().userId == existing().userId &&
+        incoming().refNo == existing().refNo &&
+        incoming().submittedAt == existing().submittedAt &&
+        (
+          (
+            isAdmin() &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'status', 'legislatorName', 'legislatorRemarks', 'legislatorActionAt', 'updatedAt'
+            ]) &&
+            incoming().updatedAt == request.time &&
+            incoming().legislatorActionAt == request.time
+          ) ||
+          (
+            existing().userId == request.auth.uid &&
+            existing().status in ['awaiting_confirmation', 'returned'] &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'driveFileId', 'driveFolderUrl', 'updatedAt'
+            ]) &&
+            incoming().updatedAt == request.time
+          )
+        );
+
+      allow delete: if isValidId(applicationId) && isAdmin();
+    }
+  }
+}

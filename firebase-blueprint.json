@@ -1,0 +1,219 @@
+{
+  "entities": {
+    "Application": {
+      "title": "Application",
+      "description": "Tricycle franchise application under Ordinance No. 1995-05",
+      "type": "object",
+      "properties": {
+        "refNo": {
+          "type": "string",
+          "maxLength": 40,
+          "pattern": "^[A-Z0-9\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "applicationType": {
+          "type": "string",
+          "enum": ["new", "renewal"]
+        },
+        "applicantName": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "contactNumber": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "applicantAddress": {
+          "type": "string",
+          "maxLength": 250
+        },
+        "ctcNumber": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "citizenshipAttested": {
+          "type": "boolean"
+        },
+        "bodyNumber": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "engineNumber": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "vehiclePlate": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "ltoCrNumber": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "ltoOrNumber": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "licenseNumber": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "licenseExpiry": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "todaName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "todaRoute": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "attachments": {
+          "type": "object"
+        },
+        "aiResult": {
+          "type": "object"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["awaiting_confirmation", "confirmed_approved", "confirmed_denied", "returned"]
+        },
+        "submittedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "legislatorName": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "legislatorRemarks": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "legislatorActionAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "driveFileId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "driveFolderUrl": {
+          "type": "string",
+          "maxLength": 300
+        }
+      },
+      "required": [
+        "refNo",
+        "userId",
+        "applicationType",
+        "applicantName",
+        "contactNumber",
+        "applicantAddress",
+        "ctcNumber",
+        "citizenshipAttested",
+        "bodyNumber",
+        "engineNumber",
+        "vehiclePlate",
+        "ltoCrNumber",
+        "ltoOrNumber",
+        "licenseNumber",
+        "licenseExpiry",
+        "todaName",
+        "todaRoute",
+        "attachments",
+        "aiResult",
+        "status",
+        "submittedAt"
+      ]
+    },
+    "User": {
+      "title": "User",
+      "description": "Authenticated portal user profile",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 200
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "email", "displayName", "updatedAt"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Authorized Sangguniang Bayan legislator or franchising staff member",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 200
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["email", "name", "createdAt"]
+    },
+    "Test": {
+      "title": "Test",
+      "description": "Firestore connectivity check document",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "maxLength": 50
+        }
+      }
+    }
+  },
+  "firestore": {
+    "/applications/{applicationId}": {
+      "schema": { "$ref": "Application" },
+      "description": "Tricycle franchise applications"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "User" },
+      "description": "Authenticated portal users"
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "Admin" },
+      "description": "Authorized legislators and franchising staff"
+    },
+    "/test/connection": {
+      "schema": { "$ref": "Test" },
+      "description": "Connection test document"
+    }
+  }
+}
